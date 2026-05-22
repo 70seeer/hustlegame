@@ -325,6 +325,7 @@ canvas { display: block; position: absolute; top: 0; left: 0; pointer-events: no
       <div id="big-btn">💰</div>
       <div id="click-label">HUSTLE</div>
       <div id="click-value">+$1.00</div>
+      <button onclick="toggleModPanel()" style="margin-top:6px;background:#1a0000;border:1px solid #ff444460;color:#ff6644;padding:4px 14px;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;letter-spacing:1px;">🔧 MOD</button>
     </div>
     <div id="combo-zone">
       <div id="combo-display">x1.0</div>
@@ -3147,14 +3148,14 @@ function closeHelp(){ document.getElementById("help-modal").className=""; }
 renderAll();updateUI();loop();
 
 // ── MOD PANEL ──
-document.addEventListener("keydown", function(e) {
+window.addEventListener("keydown", function(e) {
   if (e.key === "k" || e.key === "K") {
-    // Don't open if typing in an input/textarea
-    var tag = document.activeElement && document.activeElement.tagName;
-    if (tag === "INPUT" || tag === "TEXTAREA") return;
+    var tag = document.activeElement ? document.activeElement.tagName : "";
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    e.preventDefault();
     toggleModPanel();
   }
-});
+}, true);
 
 function toggleModPanel() {
   var panel = document.getElementById("mod-panel");
@@ -3336,7 +3337,7 @@ function modGodMode() {
   position: fixed;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%) scale(0.92);
+  transform: translate(-50%, -50%);
   width: 420px;
   max-width: 96vw;
   max-height: 88vh;
@@ -3344,17 +3345,18 @@ function modGodMode() {
   border: 1px solid #ff4444;
   border-radius: 10px;
   z-index: 999999;
-  display: none;
+  display: flex;
   flex-direction: column;
   box-shadow: 0 0 40px rgba(255,68,68,0.25), 0 0 0 1px #2a0000;
   overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
   opacity: 0;
-  transition: opacity 0.15s, transform 0.15s;
 }
 #mod-panel.open {
-  display: flex;
+  visibility: visible;
+  pointer-events: all;
   opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
 }
 #mod-header {
   display: flex;
