@@ -3145,6 +3145,418 @@ function openHelp(){ document.getElementById("help-modal").className="open"; }
 function closeHelp(){ document.getElementById("help-modal").className=""; }
 
 renderAll();updateUI();loop();
+
+// ── MOD PANEL ──
+document.addEventListener("keydown", function(e) {
+  if (e.key === "k" || e.key === "K") {
+    // Don't open if typing in an input/textarea
+    var tag = document.activeElement && document.activeElement.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA") return;
+    toggleModPanel();
+  }
+});
+
+function toggleModPanel() {
+  var panel = document.getElementById("mod-panel");
+  if (!panel) return;
+  panel.classList.toggle("open");
+}
+
+function modLog(msg, color) {
+  var log = document.getElementById("mod-log");
+  if (!log) return;
+  var line = document.createElement("div");
+  line.style.cssText = "padding:2px 0;border-bottom:1px solid #1a1a1a;font-size:10px;color:" + (color || "#44ff88");
+  line.textContent = "» " + msg;
+  log.insertBefore(line, log.firstChild);
+  // Keep last 20 entries
+  while (log.children.length > 20) log.removeChild(log.lastChild);
+}
+
+function modSetCash() {
+  var val = parseFloat(document.getElementById("mod-cash-input").value);
+  if (isNaN(val) || val < 0) { modLog("Invalid amount!", "#ff4444"); return; }
+  money = val;
+  modLog("Set cash to " + fmt(val), "#44ff88");
+  updateUI();
+}
+
+function modAddCash() {
+  var val = parseFloat(document.getElementById("mod-cash-input").value);
+  if (isNaN(val)) { modLog("Invalid amount!", "#ff4444"); return; }
+  addMoney(val);
+  modLog("Added " + fmt(val), "#44ff88");
+  updateUI();
+}
+
+function modSetTokens() {
+  var val = parseInt(document.getElementById("mod-token-input").value);
+  if (isNaN(val) || val < 0) { modLog("Invalid amount!", "#ff4444"); return; }
+  hustleTokens = val;
+  modLog("Set tokens to " + val, "#cc44ff");
+  updateUI();
+}
+
+function modMaxBiz() {
+  for (var i = 0; i < businesses.length; i++) {
+    businesses[i].owned = 999;
+    businesses[i].mult = businesses[i].mult || 1;
+  }
+  calcPerSec(); listsDirty = true;
+  modLog("All businesses set to 999x owned", "#44ffcc");
+  updateUI(); renderAll();
+}
+
+function modBuyAllUpgrades() {
+  var count = 0;
+  for (var i = 0; i < upgrades.length; i++) {
+    if (!upgrades[i].bought) {
+      upgrades[i].bought = true;
+      if (upgrades[i].type === "click") clickValue *= upgrades[i].mult;
+      if (upgrades[i].type === "biz" && upgrades[i].reqIdx >= 0) businesses[upgrades[i].reqIdx].mult *= upgrades[i].mult;
+      if (upgrades[i].type === "all") for (var j = 0; j < businesses.length; j++) businesses[j].mult *= upgrades[i].mult;
+      if (upgrades[i].type === "combo_unlock") { comboUnlocked = true; document.getElementById("combo-zone").style.display = "flex"; }
+      count++;
+    }
+  }
+  calcPerSec(); listsDirty = true;
+  modLog("Unlocked " + count + " upgrades", "#44ff88");
+  updateUI(); renderAll();
+}
+
+function modBuyAllPerks() {
+  var count = 0;
+  for (var i = 0; i < perks.length; i++) {
+    if (!perks[i].owned) {
+      perks[i].owned = true;
+      if (perks[i].type === "baseincome")   perkEffects.basePassive += perks[i].val;
+      if (perks[i].type === "costreduce")   perkEffects.costReduce *= perks[i].val;
+      if (perks[i].type === "clickpct")     clickMult *= (1 + perks[i].val);
+      if (perks[i].type === "goldtouch")    clickValue *= perks[i].val;
+      if (perks[i].type === "incomepct")    globalIncomeBonus += perks[i].val;
+      if (perks[i].type === "empireall")    for (var j = 0; j < businesses.length; j++) businesses[j].mult *= perks[i].val;
+      if (perks[i].type === "bizspdpct")   perkEffects.bizSpeedMult *= (1 + perks[i].val);
+      if (perks[i].type === "frenzypct")   frenzyCdMax *= 0.60;
+      if (perks[i].type === "frenzydurpct") frenzyDur *= (1 + perks[i].val);
+      if (perks[i].type === "luckypct")    perkEffects.luckyBoost += (perks[i].val || 2);
+      if (perks[i].type === "rainbowpct")  perkEffects.rainbowMult *= (1 + perks[i].val);
+      if (perks[i].type === "prestigepct") prestigeBaseMult += (prestigeBaseMult * perks[i].val);
+      count++;
+    }
+  }
+  calcPerSec(); listsDirty = true;
+  modLog("Unlocked " + count + " perks", "#44aaff");
+  updateUI(); renderAll();
+}
+
+function modUnlockAllTree() {
+  var count = 0;
+  for (var i = 0; i < treeNodes.length; i++) {
+    var node = treeNodes[i];
+    if (!node.bought && node.type !== "timebank_pay") {
+      node.bought = true;
+      applyTreeNode(node);
+      count++;
+    }
+  }
+  modLog("Unlocked " + count + " skill tree nodes", "#44aaff");
+  listsDirty = true; updateUI(); renderAll();
+  if (document.getElementById("tree-modal").className === "open") renderTree();
+}
+
+function modUnlockAllConsumables() {
+  consumableTierUnlocked = 5;
+  modLog("All consumable tiers unlocked", "#ff88cc");
+  listsDirty = true; renderAll();
+}
+
+function modResetCooldowns() {
+  for (var i = 0; i < consumables.length; i++) consumables[i].cdLeft = 0;
+  frenzyCd = 0; megaFrenzyCd = 0;
+  modLog("All cooldowns reset", "#44ffcc");
+  listsDirty = true; renderAll(); updateUI();
+}
+
+function modUnlockPrestige() {
+  prestigeUnlocked = true;
+  frenzyUnlocked = true;
+  megaFrenzyUnlocked = true;
+  buyAllUnlocked = true;
+  modLog("Prestige, Frenzy, Mega Frenzy, Buy All unlocked", "#cc44ff");
+  updateUI();
+}
+
+function modSetPrestige() {
+  var val = parseInt(document.getElementById("mod-prestige-input").value);
+  if (isNaN(val) || val < 0) { modLog("Invalid count!", "#ff4444"); return; }
+  prestigeCount = val;
+  prestigeMult = Math.pow(prestigeBaseMult, prestigeCount);
+  modLog("Set prestige to #" + val + " (x" + prestigeMult.toFixed(2) + " mult)", "#cc44ff");
+  updateUI();
+}
+
+function modGodMode() {
+  // Max everything in one click
+  money = 1e30;
+  hustleTokens = 99999;
+  prestigeCount = 10;
+  prestigeMult = Math.pow(prestigeBaseMult, prestigeCount);
+  prestigeUnlocked = true;
+  frenzyUnlocked = true;
+  megaFrenzyUnlocked = true;
+  buyAllUnlocked = true;
+  consumableTierUnlocked = 5;
+  cashBonusMult = 10;
+  clickValue = 1e15;
+  clickMult = 1e10;
+  globalIncomeBonus = 100;
+  frenzyCd = 0; megaFrenzyCd = 0;
+  for (var i = 0; i < businesses.length; i++) { businesses[i].owned = 9999; }
+  for (var i = 0; i < upgrades.length; i++) {
+    if (!upgrades[i].bought) {
+      upgrades[i].bought = true;
+      if (upgrades[i].type === "all") for (var j = 0; j < businesses.length; j++) businesses[j].mult *= upgrades[i].mult;
+    }
+  }
+  for (var i = 0; i < consumables.length; i++) consumables[i].cdLeft = 0;
+  comboUnlocked = true;
+  document.getElementById("combo-zone").style.display = "flex";
+  calcPerSec(); listsDirty = true;
+  startRainbow(30);
+  spawnShockwave(W/2, H/2); spawnShockwave(W/3, H/3); spawnShockwave(2*W/3, 2*H/3);
+  modLog("🔱 GOD MODE ACTIVATED", "#ffd700");
+  toast("🔱 MOD: GOD MODE!", "#ffd700");
+  updateUI(); renderAll();
+}
 </script>
+
+<!-- MOD PANEL -->
+<style>
+#mod-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.92);
+  width: 420px;
+  max-width: 96vw;
+  max-height: 88vh;
+  background: #080808;
+  border: 1px solid #ff4444;
+  border-radius: 10px;
+  z-index: 999999;
+  display: none;
+  flex-direction: column;
+  box-shadow: 0 0 40px rgba(255,68,68,0.25), 0 0 0 1px #2a0000;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.15s, transform 0.15s;
+}
+#mod-panel.open {
+  display: flex;
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+#mod-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: #0f0000;
+  border-bottom: 1px solid #2a0000;
+  flex-shrink: 0;
+}
+#mod-header h2 {
+  font-size: 13px;
+  color: #ff4444;
+  margin: 0;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  font-family: 'Segoe UI', sans-serif;
+}
+#mod-close {
+  background: none;
+  border: 1px solid #ff444440;
+  color: #ff4444;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+}
+#mod-close:hover { background: #2a0000; }
+#mod-body {
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#mod-body::-webkit-scrollbar { width: 3px; }
+#mod-body::-webkit-scrollbar-thumb { background: #2a0000; }
+.mod-section {
+  background: #0d0000;
+  border: 1px solid #2a0000;
+  border-radius: 7px;
+  padding: 10px 12px;
+}
+.mod-section h3 {
+  font-size: 10px;
+  color: #ff6644;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  font-family: 'Segoe UI', sans-serif;
+}
+.mod-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+  align-items: center;
+}
+.mod-row:last-child { margin-bottom: 0; }
+.mod-input {
+  flex: 1;
+  background: #050000;
+  border: 1px solid #3a0000;
+  color: #ff8888;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: 'Segoe UI', monospace;
+  min-width: 0;
+}
+.mod-input:focus { outline: none; border-color: #ff4444; }
+.mod-btn {
+  background: #1a0000;
+  border: 1px solid #ff444440;
+  color: #ff8888;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+  font-family: 'Segoe UI', sans-serif;
+  white-space: nowrap;
+  transition: background 0.1s, color 0.1s;
+  flex-shrink: 0;
+}
+.mod-btn:hover { background: #2a0000; color: #ff4444; }
+.mod-btn.green { border-color: #44ff8840; color: #44ff88; background: #001a00; }
+.mod-btn.green:hover { background: #003300; }
+.mod-btn.blue { border-color: #44aaff40; color: #44aaff; background: #00001a; }
+.mod-btn.blue:hover { background: #000033; }
+.mod-btn.purple { border-color: #cc44ff40; color: #cc44ff; background: #10001a; }
+.mod-btn.purple:hover { background: #200033; }
+.mod-btn.gold { border-color: #ffd70060; color: #ffd700; background: #1a1000; }
+.mod-btn.gold:hover { background: #2a1800; border-color: #ffd700; }
+.mod-btn.full { width: 100%; text-align: center; }
+#mod-log {
+  background: #050000;
+  border: 1px solid #1a0000;
+  border-radius: 5px;
+  padding: 6px 8px;
+  max-height: 100px;
+  overflow-y: auto;
+  font-family: monospace;
+}
+#mod-log::-webkit-scrollbar { width: 3px; }
+#mod-log::-webkit-scrollbar-thumb { background: #2a0000; }
+.mod-hint {
+  font-size: 9px;
+  color: #3a0000;
+  text-align: center;
+  padding-top: 2px;
+  letter-spacing: 1px;
+}
+</style>
+
+<div id="mod-panel">
+  <div id="mod-header">
+    <h2>🔧 Mod Panel</h2>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:9px;color:#3a1010;letter-spacing:1px;">PRESS K TO CLOSE</span>
+      <button id="mod-close" onclick="toggleModPanel()">✕</button>
+    </div>
+  </div>
+  <div id="mod-body">
+
+    <!-- Cash -->
+    <div class="mod-section">
+      <h3>💰 Cash</h3>
+      <div class="mod-row">
+        <input id="mod-cash-input" class="mod-input" type="number" placeholder="Amount (e.g. 1e12)" value="1000000" />
+        <button class="mod-btn green" onclick="modSetCash()">Set</button>
+        <button class="mod-btn green" onclick="modAddCash()">Add</button>
+      </div>
+      <div class="mod-row" style="flex-wrap:wrap;gap:4px;">
+        <button class="mod-btn green" onclick="document.getElementById('mod-cash-input').value='1000';modSetCash()">$1K</button>
+        <button class="mod-btn green" onclick="document.getElementById('mod-cash-input').value='1000000';modSetCash()">$1M</button>
+        <button class="mod-btn green" onclick="document.getElementById('mod-cash-input').value='1000000000';modSetCash()">$1B</button>
+        <button class="mod-btn green" onclick="document.getElementById('mod-cash-input').value='1e12';modSetCash()">$1T</button>
+        <button class="mod-btn green" onclick="document.getElementById('mod-cash-input').value='1e18';modSetCash()">$1Qi</button>
+        <button class="mod-btn green" onclick="document.getElementById('mod-cash-input').value='1e30';modSetCash()">MAX</button>
+      </div>
+    </div>
+
+    <!-- Tokens -->
+    <div class="mod-section">
+      <h3>⬡ Hustle Tokens</h3>
+      <div class="mod-row">
+        <input id="mod-token-input" class="mod-input" type="number" placeholder="Tokens" value="1000" />
+        <button class="mod-btn purple" onclick="modSetTokens()">Set Tokens</button>
+      </div>
+      <div class="mod-row" style="flex-wrap:wrap;gap:4px;">
+        <button class="mod-btn purple" onclick="document.getElementById('mod-token-input').value='100';modSetTokens()">100</button>
+        <button class="mod-btn purple" onclick="document.getElementById('mod-token-input').value='1000';modSetTokens()">1K</button>
+        <button class="mod-btn purple" onclick="document.getElementById('mod-token-input').value='9999';modSetTokens()">9999</button>
+        <button class="mod-btn purple" onclick="document.getElementById('mod-token-input').value='99999';modSetTokens()">MAX</button>
+      </div>
+    </div>
+
+    <!-- Prestige -->
+    <div class="mod-section">
+      <h3>✨ Prestige</h3>
+      <div class="mod-row">
+        <input id="mod-prestige-input" class="mod-input" type="number" placeholder="Prestige count" value="10" min="0" />
+        <button class="mod-btn purple" onclick="modSetPrestige()">Set Prestige</button>
+      </div>
+      <div class="mod-row">
+        <button class="mod-btn purple full" onclick="modUnlockPrestige()">Unlock Prestige + Frenzy + Buy All</button>
+      </div>
+    </div>
+
+    <!-- Unlocks -->
+    <div class="mod-section">
+      <h3>🔓 Instant Unlocks</h3>
+      <div class="mod-row" style="flex-wrap:wrap;gap:5px;">
+        <button class="mod-btn blue" onclick="modMaxBiz()">Max All Businesses</button>
+        <button class="mod-btn blue" onclick="modBuyAllUpgrades()">All Upgrades</button>
+        <button class="mod-btn blue" onclick="modBuyAllPerks()">All Perks</button>
+        <button class="mod-btn blue" onclick="modUnlockAllTree()">Full Skill Tree</button>
+        <button class="mod-btn blue" onclick="modUnlockAllConsumables()">All Consumables</button>
+        <button class="mod-btn blue" onclick="modResetCooldowns()">Reset All CDs</button>
+      </div>
+    </div>
+
+    <!-- God Mode -->
+    <div class="mod-section">
+      <h3>🔱 God Mode</h3>
+      <button class="mod-btn gold full" style="padding:8px;font-size:12px;letter-spacing:1px;" onclick="modGodMode()">🔱 ACTIVATE GOD MODE</button>
+      <div class="mod-hint" style="margin-top:6px;">Sets cash, tokens, businesses, upgrades, and tree to MAX</div>
+    </div>
+
+    <!-- Log -->
+    <div class="mod-section">
+      <h3>📋 Log</h3>
+      <div id="mod-log">
+        <div style="font-size:10px;color:#2a0000;padding:2px 0;">Mod panel ready. Press K to toggle.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
 </body>
 </html>
